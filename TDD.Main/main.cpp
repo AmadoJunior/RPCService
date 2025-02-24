@@ -19,8 +19,8 @@ int main() {
     signal(SIGTERM, signalHandler); // Handle Termination Request
 
     HTTPServer server(std::make_unique<WinsockSocket>());
-
-    server.registerHandler("/", [](const HTTPServer::Request& req) {
+    std::vector<std::string> methodsAllowed = { "GET" };
+    server.registerHandlerWithMethods("/", methodsAllowed, [](const HTTPServer::Request& req) {
         HTTPServer::Response res;
         res.statusCode = 200;
         std::string body = "Hello, World!";

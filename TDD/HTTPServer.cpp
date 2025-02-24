@@ -101,9 +101,9 @@ void HTTPServer::stop() {
     socket_->cleanup();
 }
 
-void HTTPServer::registerHandler(const std::string& path, RequestHandler handler) {
-    handlers_[path] = std::move(handler);
-}
+//void HTTPServer::registerHandler(const std::string& path, RequestHandler handler) {
+//    handlers_[path] = std::move(handler);
+//}
 
 HTTPServer::Request HTTPServer::parseRequest(const std::vector<uint8_t>& data) {
     Request request;
@@ -209,7 +209,44 @@ void HTTPServer::handleClient(std::shared_ptr<Socket> clientSocket, ClientSessio
             // Parse and Process the Request
             auto request = parseRequest(receiveResult.value());
 
-            Response response{ 404, {}, {} };
+            Response response{ 405, {}, {} };
+
+            auto matchingRoute = findMatchingRoute(request.path, request.method);
+            if (matchingRoute) {
+                try {
+                    response = matchingRoute->handler(request);
+                }
+                catch (const std::exception& e) {
+                    response.statusCode = 500;
+                    std::string error = "Internal Server Error";
+                    response.body = std::vector<uint8_t>(error.begin(), error.end());
+                }
+            }
+            else {
+                bool pathExists = false;
+                std::string allowedMethods;
+
+                for (const auto& route : routes_) {
+                    if (route.path == request.path) {
+                        pathExists = true;
+                        for (const auto& method : route.allowedMethods) {
+                            if (!allowedMethods.empty()) allowedMethods += ", ";
+                            allowedMethods += method;
+                        }
+                        break;
+                    }
+                }
+                if (pathExists) {
+                    // Method Not Allowed
+                    response.statusCode = 405; 
+                    response.headers["Allow"] = allowedMethods;
+                }
+                else {
+                    // Not Found
+                    response.statusCode = 404; 
+                }
+            }
+
             auto handlerIt = handlers_.find(request.path);
             if (handlerIt != handlers_.end()) {
                 try {
@@ -247,15 +284,40 @@ void HTTPServer::handleClient(std::shared_ptr<Socket> clientSocket, ClientSessio
             }
         }
         catch (const std::exception& e) {
-            std::cerr << "Client handler exception: " << e.what() << std::endl;
+            std::cerr << "Client Handler Exception: " << e.what() << std::endl;
             break;
         }
         catch (...) {
-            std::cerr << "Unknown exception in client handler" << std::endl;
+            std::cerr << "Unknown Exception in Client Handler" << std::endl;
             break;
         }
     }
 
     // Ensure Socket Closed
     session.active = false;
+}
+
+void HTTPServer::registerHandler(const std::string& path, RequestHandler handler) {
+    registerHandlerWithMethods(path, std::vector<std::string>{}, handler);  // Empty vector means all methods allowed
+}
+
+void HTTPServer::registerHandlerWithMethods(const std::string& path, const std::vector<std::string>& methods, RequestHandler handler) {
+    RouteConfig route{ path, methods, handler };
+    routes_.push_back(std::move(route));
+}
+
+bool HTTPServer::isMethodAllowed(const std::vector<std::string>& allowedMethods, const std::string& method) const {
+    if (allowedMethods.empty()) {
+        return true;
+    }
+    return std::find(allowedMethods.begin(), allowedMethods.end(), method) != allowedMethods.end();
+}
+
+std::optional<HTTPServer::RouteConfig> HTTPServer::findMatchingRoute(const std::string& path, const std::string& method) {
+    for (const auto& route : routes_) {
+        if (route.path == path && isMethodAllowed(route.allowedMethods, method)) {
+            return route;
+        }
+    }
+    return std::nullopt;
 }

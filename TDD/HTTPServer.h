@@ -66,6 +66,12 @@ public:
 
     using RequestHandler = std::function<Response(const Request&)>;
 
+    struct RouteConfig {
+        std::string path;
+        std::vector<std::string> allowedMethods;
+        RequestHandler handler;
+    };
+
     HTTPServer(std::unique_ptr<Socket> socket);
     ~HTTPServer();
 
@@ -73,6 +79,7 @@ public:
     void stop();
 
     void registerHandler(const std::string& path, RequestHandler handler);
+    void registerHandlerWithMethods(const std::string& path, const std::vector<std::string>& methods, RequestHandler handler);
     void cleanupSessions();
     Request parseRequest(const std::vector<uint8_t>& data);
     std::vector<uint8_t> serializeResponse(const Response& response);
@@ -81,8 +88,12 @@ private:
     std::atomic<bool> running_;
     std::unique_ptr<Socket> socket_;
     std::unordered_map<std::string, RequestHandler> handlers_;
+    std::vector<RouteConfig> routes_;
     std::thread acceptThread_;
     std::thread cleanupThread_;
     std::vector<std::unique_ptr<ClientSession>> clientSessions_;
     std::mutex clientSessionsMutex_;
+
+    std::optional<RouteConfig> findMatchingRoute(const std::string& path, const std::string& method);
+    bool isMethodAllowed(const std::vector<std::string>& allowedMethods, const std::string& method) const;
 };
