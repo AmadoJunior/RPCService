@@ -58,7 +58,7 @@
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>C:\Users\adm27\source\repos\googletest-1.16.0\out\install\x64-Debug\include;C:\Users\adm27\source\repos\TDD\TDD;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\adm27\source\repos\cppack\msgpack\include;C:\Users\adm27\source\repos\googletest-1.16.0\out\install\x64-Debug\include;C:\Users\adm27\source\repos\TDD\TDD;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp23</LanguageStandard>
     </ClCompile>
     <Link>
@@ -106,6 +106,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Calculator.t.cpp" />
+    <ClCompile Include="MessagePackExample.cpp" />
     <ClCompile Include="Socket.t.cpp" />
     <ClCompile Include="test.cpp" />
     <ClCompile Include="pch.cpp">
