@@ -9,7 +9,7 @@
     private:
         std::shared_ptr<BumpMemoryManager> memoryManager_;
         std::pmr::memory_resource* resource_;
-        std::unique_ptr<HTTPServer> server_;
+        std::unique_ptr<HTTPServer, PMRDeleter<HTTPServer>> server_;
 
         HTTPServer::Response createHelloWorldResponse(std::pmr::memory_resource* resource);
 

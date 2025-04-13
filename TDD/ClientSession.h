@@ -2,6 +2,7 @@
 
 #include "Socket.h"
 #include "BumpMemoryManager.h"
+#include "PMRDeleter.h"
 #include <memory>
 #include <memory_resource>
 #include <thread>

@@ -5,7 +5,7 @@
 #include <algorithm>
 
 HTTPServer::HTTPServer(
-    std::unique_ptr<Socket> socket,
+    std::unique_ptr<Socket, PMRDeleter<Socket>> socket,
     std::shared_ptr<BumpMemoryManager> memoryManager
 ) :
     socket_(std::move(socket)),
@@ -379,8 +379,8 @@ void HTTPServer::acceptThreadHandler() {
         std::lock_guard<std::mutex> lock(clientSessionsMutex_);
         try {
             auto clientResource = memoryManager_->createClientResource(clientSessionBufferSize_);
-
-            auto session = std::make_unique<ClientSession>(
+            auto session = make_pmr_unique_ptr<ClientSession>(
+                memoryManager_->getResource(),
                 clientSocket,
                 std::move(clientResource),
                 [this](ClientSession& session) { this->handleClient(session); }

@@ -18,9 +18,15 @@
     <ClInclude Include="BumpMemoryManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="PMRDeleter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BumpMemoryManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PMRDeleter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

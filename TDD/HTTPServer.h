@@ -10,6 +10,7 @@
 #include "Socket.h"
 #include "ClientSession.h"
 #include "BumpMemoryManager.h"
+#include "PMRDeleter.h"
 #include <memory>
 #include <memory_resource> 
 #include <string>
@@ -66,7 +67,7 @@ public:
     };
 
     HTTPServer(
-        std::unique_ptr<Socket> socket,
+        std::unique_ptr<Socket, PMRDeleter<Socket>> socket,
         std::shared_ptr<BumpMemoryManager> memoryManager
     );
     ~HTTPServer();
@@ -92,7 +93,7 @@ private:
 
     // Server State
     std::atomic<bool> running_;
-    std::unique_ptr<Socket> socket_;
+    std::unique_ptr<Socket, PMRDeleter<Socket>> socket_;
 
     // Memory Management
     std::shared_ptr<BumpMemoryManager> memoryManager_;
@@ -107,7 +108,7 @@ private:
     std::thread cleanupThread_;
 
     // Client Session Management
-    std::pmr::vector<std::unique_ptr<ClientSession>> clientSessions_;
+    std::pmr::vector<std::unique_ptr<ClientSession, PMRDeleter<ClientSession>>> clientSessions_;
     std::mutex clientSessionsMutex_;
 
     // Configuration

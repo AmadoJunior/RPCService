@@ -6,6 +6,7 @@
 #define API __declspec(dllimport)
 #endif
 
+#include "PMRDeleter.h" 
 #include <expected>
 #include <optional>
 #include <vector>

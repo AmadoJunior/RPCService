@@ -1,22 +1,34 @@
 #include "ServerManager.h"
 #include "WinsockSocket.h"
+#include "PMRDeleter.h"
 #include <iostream>
 #include <format>
 
 ServerManager::ServerManager(std::shared_ptr<BumpMemoryManager> memoryManager)
     : memoryManager_(std::move(memoryManager)),
     resource_(memoryManager_->getResource()),
-    server_(std::make_unique<HTTPServer>(
-        std::make_unique<WinsockSocket>(resource_),
-        memoryManager_
-    ))
+    server_(nullptr, PMRDeleter<HTTPServer>(resource_))
 {
+    // Create Socket
+    auto socketImpl = make_pmr_unique_ptr<WinsockSocket>(resource_, resource_);
+
+    // Create a unique_ptr<Socket> from unique_ptr<WinsockSocket>
+    std::unique_ptr<Socket, PMRDeleter<Socket>> socket(
+        socketImpl.release(),
+        PMRDeleter<Socket>(resource_)
+    );
+
+
+    // Create Server
+    server_ = make_pmr_unique_ptr<HTTPServer>(
+        resource_,
+        std::move(socket),
+        memoryManager_
+    );
 }
 
 ServerManager::~ServerManager() {
     stop();
-    // Ensure Server Destroyed Before Memory Manager
-    server_.reset();
 }
 
 void ServerManager::setupRoutes() {
