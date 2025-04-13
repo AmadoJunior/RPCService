@@ -58,7 +58,7 @@
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>C:\Users\adm27\source\repos\cppack\msgpack\include;C:\Users\adm27\source\repos\googletest-1.16.0\out\install\x64-Debug\include;C:\Users\adm27\source\repos\TDD\TDD;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\adm27\source\repos\cppack\msgpack\include;C:\Users\adm27\source\repos\googletest-1.16.0\out\install\x64-Debug\include;C:\Users\adm27\source\repos\TDD\MemoryManagement;C:\Users\adm27\source\repos\TDD\TDD;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp23</LanguageStandard>
     </ClCompile>
     <Link>
@@ -118,6 +118,9 @@
     <ClCompile Include="WinsockSocket.t.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\MemoryManagement\MemoryManagement.vcxproj">
+      <Project>{2accbef6-041d-417d-875b-521de451071b}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\TDD\TDD.vcxproj">
       <Project>{a65d2b7b-0354-4a94-a0c4-8333190db72c}</Project>
     </ProjectReference>

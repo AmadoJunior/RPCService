@@ -4,6 +4,7 @@
 #include <ws2tcpip.h>
 #include <mstcpip.h>
 #include <expected>
+#include <memory_resource> // Add PMR header
 
 SocketError WinsockSocket::getLastError(SocketError::Type type) {
     return { type, static_cast<int32_t>(WSAGetLastError()) };
@@ -20,7 +21,11 @@ SocketError WinsockSocket::initWinsock() {
     return SocketError::success();
 }
 
-WinsockSocket::WinsockSocket() : sock_(INVALID_SOCKET), initialized_(false) {}
+WinsockSocket::WinsockSocket(std::pmr::memory_resource* resource)
+    : sock_(INVALID_SOCKET),
+    initialized_(false),
+    resource_(resource) {
+}
 
 WinsockSocket::~WinsockSocket() {
     close();
@@ -46,26 +51,6 @@ SocketError WinsockSocket::init() {
         return getLastError(SocketError::Type::Initialization);
     }
 
-    // Enable TCP keepalive
-    //BOOL keepAlive = TRUE;
-    //if (setsockopt(sock_, SOL_SOCKET, SO_KEEPALIVE,
-    //    reinterpret_cast<const char*>(&keepAlive),
-    //    sizeof(keepAlive)) == SOCKET_ERROR) {
-    //    return getLastError(SocketError::Type::Initialization);
-    //}
-
-    //tcp_keepalive keepAliveParams{};
-    //keepAliveParams.onoff = 1;                    // Enable Keepalive
-    //keepAliveParams.keepalivetime = 30000;        // Start Sending After 30 Seconds of Idle
-    //keepAliveParams.keepaliveinterval = 1000;     // Send every 1 second
-
-    //DWORD bytesReturned;
-    //if (WSAIoctl(sock_, SIO_KEEPALIVE_VALS, &keepAliveParams,
-    //    sizeof(keepAliveParams), nullptr, 0,
-    //    &bytesReturned, nullptr, nullptr) == SOCKET_ERROR) {
-    //    return getLastError(SocketError::Type::Initialization);
-    //}
-
     // Allow Socket Reuse
     BOOL opt = TRUE;
     if (setsockopt(sock_, SOL_SOCKET, SO_REUSEADDR,
@@ -82,7 +67,11 @@ SocketError WinsockSocket::init() {
     return SocketError::success();
 }
 
-SocketError WinsockSocket::bind(const std::string& address, uint16_t port) {
+std::pmr::memory_resource* WinsockSocket::getMemoryResource() const {
+    return resource_;
+}
+
+SocketError WinsockSocket::bind(const std::pmr::string& address, uint16_t port) {
     if (!initialized_) {
         return { SocketError::Type::Initialization, 0 };
     }
@@ -126,14 +115,14 @@ std::expected<std::shared_ptr<Socket>, SocketError> WinsockSocket::accept() {
         return std::unexpected(getLastError(SocketError::Type::Connection));
     }
 
-    auto clientWinsockSocket = std::make_shared<WinsockSocket>();
+    auto clientWinsockSocket = std::make_shared<WinsockSocket>(resource_);
     clientWinsockSocket->sock_ = clientSocket;
     clientWinsockSocket->initialized_ = true;
 
     return clientWinsockSocket;
 }
 
-SocketError WinsockSocket::connect(const std::string& address, uint16_t port) {
+SocketError WinsockSocket::connect(const std::pmr::string& address, uint16_t port) {
     if (!initialized_) {
         return { SocketError::Type::Initialization, 0 };
     }
@@ -152,7 +141,7 @@ SocketError WinsockSocket::connect(const std::string& address, uint16_t port) {
     return SocketError::success();
 }
 
-SocketError WinsockSocket::send(const std::vector<uint8_t>& data) {
+SocketError WinsockSocket::send(const std::pmr::vector<uint8_t>& data) {
     if (!initialized_) {
         return { SocketError::Type::Initialization, 0 };
     }
@@ -167,12 +156,12 @@ SocketError WinsockSocket::send(const std::vector<uint8_t>& data) {
     return SocketError::success();
 }
 
-std::expected<std::vector<uint8_t>, SocketError> WinsockSocket::receive(size_t maxSize) {
+std::expected<std::pmr::vector<uint8_t>, SocketError> WinsockSocket::receive(size_t maxSize) {
     if (!initialized_) {
         return std::unexpected(SocketError{ SocketError::Type::Initialization, 0 });
     }
 
-    std::vector<uint8_t> buffer(maxSize);
+    std::pmr::vector<uint8_t> buffer(maxSize, resource_);
     int bytesReceived = recv(sock_, reinterpret_cast<char*>(buffer.data()),
         static_cast<int>(maxSize), 0);
 

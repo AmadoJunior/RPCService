@@ -108,7 +108,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;LIB_EXPORTS;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Users\adm27\source\repos\cppack\msgpack\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\adm27\source\repos\TDD\MemoryManagement;C:\Users\adm27\source\repos\cppack\msgpack\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <LanguageStandard>stdcpp23</LanguageStandard>
     </ClCompile>
@@ -137,14 +137,21 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Calculator.cpp" />
+    <ClCompile Include="ClientSession.cpp" />
     <ClCompile Include="HTTPServer.cpp" />
     <ClCompile Include="WinsockSocket.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Calculator.h" />
+    <ClInclude Include="ClientSession.h" />
     <ClInclude Include="HTTPServer.h" />
     <ClInclude Include="Socket.h" />
     <ClInclude Include="WinsockSocket.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MemoryManagement\MemoryManagement.vcxproj">
+      <Project>{2accbef6-041d-417d-875b-521de451071b}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

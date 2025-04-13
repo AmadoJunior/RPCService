@@ -8,7 +8,10 @@
 #endif
 
 #include "Socket.h"
+#include "ClientSession.h"
+#include "BumpMemoryManager.h"
 #include <memory>
+#include <memory_resource> 
 #include <string>
 #include <functional>
 #include <unordered_map>
@@ -24,76 +27,89 @@
 #include <cstdlib>
 #include <algorithm>
 
-class API ClientSession {
-public:
-    ClientSession(std::shared_ptr<Socket> socket)
-        : socket(std::move(socket)), active(true), lastActivity(std::chrono::steady_clock::now()) {
-    }
-
-    ~ClientSession() {
-        if (socket) {
-            socket->close();
-        }
-        if (thread.joinable()) {
-            thread.join();
-        }
-    }
-
-    void setThread(std::thread t) {
-        thread = std::move(t);
-    }
-
-    std::thread thread;
-    std::shared_ptr<Socket> socket;
-    bool active;
-    std::chrono::steady_clock::time_point lastActivity;
-};
-
 class API HTTPServer {
 public:
     struct Request {
-        std::string method;
-        std::string path;
-        std::unordered_map<std::string, std::string> headers;
-        std::vector<uint8_t> body;
+        std::pmr::string method;
+        std::pmr::string path;
+        std::pmr::unordered_map<std::pmr::string, std::pmr::string> headers;
+        std::pmr::vector<uint8_t> body;
+
+        Request(std::pmr::memory_resource* resource)
+            : method(resource), path(resource),
+            headers(resource), body(resource) {
+        }
     };
 
     struct Response {
         int statusCode;
-        std::unordered_map<std::string, std::string> headers;
-        std::vector<uint8_t> body;
+        std::pmr::unordered_map<std::pmr::string, std::pmr::string> headers;
+        std::pmr::vector<uint8_t> body;
+
+        Response(int code = 200,
+            std::pmr::unordered_map<std::pmr::string, std::pmr::string> headers = {},
+            std::pmr::memory_resource* resource = std::pmr::get_default_resource())
+            : statusCode(code), headers(resource), body(resource) {
+        }
     };
 
     using RequestHandler = std::function<Response(const Request&)>;
 
     struct RouteConfig {
-        std::string path;
-        std::vector<std::string> allowedMethods;
+        std::pmr::string path;
+        std::pmr::vector<std::pmr::string> allowedMethods;
         RequestHandler handler;
+
+        RouteConfig(std::pmr::memory_resource* resource)
+            : path(resource), allowedMethods(resource) {
+        }
     };
 
-    HTTPServer(std::unique_ptr<Socket> socket);
+    HTTPServer(
+        std::unique_ptr<Socket> socket,
+        std::shared_ptr<BumpMemoryManager> memoryManager
+    );
     ~HTTPServer();
 
-    SocketError start(const std::string& address, uint16_t port);
+    SocketError start(const std::pmr::string& address, uint16_t port);
     void stop();
 
-    void registerHandler(const std::string& path, RequestHandler handler);
-    void registerHandlerWithMethods(const std::string& path, const std::vector<std::string>& methods, RequestHandler handler);
-    void cleanupSessions();
-    Request parseRequest(const std::vector<uint8_t>& data);
-    std::vector<uint8_t> serializeResponse(const Response& response);
-    void handleClient(std::shared_ptr<Socket> clientSocket, ClientSession& session);
+    void registerHandler(const std::pmr::string& path, RequestHandler handler);
+    void registerHandlerWithMethods(const std::pmr::string& path,
+        const std::pmr::vector<std::pmr::string>& methods,
+        RequestHandler handler);
+    
 private:
+    void handleClient(ClientSession& session);
+    void cleanupSessions();
+    Request parseRequest(const std::pmr::vector<uint8_t>& data, std::pmr::memory_resource* resource);
+    std::pmr::vector<uint8_t> serializeResponse(const Response& response, std::pmr::memory_resource* resource);
+    std::optional<RouteConfig> findMatchingRoute(const std::pmr::string& path, const std::pmr::string& method);
+    bool isMethodAllowed(const std::pmr::vector<std::pmr::string>& allowedMethods, const std::pmr::string& method) const;
+
+    void acceptThreadHandler();
+    void cleanupThreadHandler();
+
+    // Server State
     std::atomic<bool> running_;
     std::unique_ptr<Socket> socket_;
-    std::unordered_map<std::string, RequestHandler> handlers_;
-    std::vector<RouteConfig> routes_;
+
+    // Memory Management
+    std::shared_ptr<BumpMemoryManager> memoryManager_;
+    std::pmr::memory_resource* serverResource_;
+
+    // Route Config
+    std::pmr::unordered_map<std::pmr::string, RequestHandler> handlers_;
+    std::pmr::vector<RouteConfig> routes_;
+
+    // Threading
     std::thread acceptThread_;
     std::thread cleanupThread_;
-    std::vector<std::unique_ptr<ClientSession>> clientSessions_;
+
+    // Client Session Management
+    std::pmr::vector<std::unique_ptr<ClientSession>> clientSessions_;
     std::mutex clientSessionsMutex_;
 
-    std::optional<RouteConfig> findMatchingRoute(const std::string& path, const std::string& method);
-    bool isMethodAllowed(const std::vector<std::string>& allowedMethods, const std::string& method) const;
+    // Configuration
+    size_t clientSessionBufferSize_;
 };

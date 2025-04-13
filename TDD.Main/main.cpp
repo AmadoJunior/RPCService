@@ -1,48 +1,53 @@
-#include "Calculator.h"
+#include "BumpMemoryManager.h"
+#include "ServerManager.h"
+#include "SignalHandler.h"
 #include <iostream>
-#include <winsock2.h>
-#include "HTTPServer.h"
-#include "WinsockSocket.h"
-#include <csignal>
 #include <chrono>
-#include <atomic>
-#include <format>
-
-std::atomic<bool> running = true;
-
-void signalHandler(int signum) {
-    running = false;
-}
+#include <thread>
+#include <memory>
 
 int main() {
-    signal(SIGINT, signalHandler);  // Handle Ctrl+C
-    signal(SIGTERM, signalHandler); // Handle Termination Request
+    try {
+        // Initialize Signal Handling
+        SignalHandler::initialize();
 
-    HTTPServer server(std::make_unique<WinsockSocket>());
-    std::vector<std::string> methodsAllowed = { "GET" };
-    server.registerHandlerWithMethods("/", methodsAllowed, [](const HTTPServer::Request& req) {
-        HTTPServer::Response res;
-        res.statusCode = 200;
-        std::string body = "Hello, World!";
-        res.body = std::vector<uint8_t>(body.begin(), body.end());
-        return res;
-    });
+        // Initialize Memory Management
+        constexpr size_t BUFFER_SIZE = 10 * 1024 * 1024; // 10MB
+        auto memoryManager = std::make_shared<BumpMemoryManager>(BUFFER_SIZE);
 
-    std::string serverAddress = "127.0.0.1";
-    const int serverPort = 8080;
-    auto startResult = server.start(serverAddress, serverPort);
-    if (startResult.type != SocketError::Type::None) {
-        std::cerr << "Failed to Start Server: " << static_cast<int>(startResult.type)
-            << " Internal Error Code: " << startResult.internalCode << std::endl;
+        // Get Server's Resource for Initial Allocations
+        auto* resource = memoryManager->getResource();
+
+        // Create and Configure
+        ServerManager serverManager(memoryManager);
+        serverManager.setupRoutes();
+
+        // Start Server
+        std::pmr::string serverAddress("127.0.0.1", resource);
+        constexpr uint16_t serverPort = 8080;
+
+        if (!serverManager.start(serverAddress, serverPort)) {
+            return 1;
+        }
+
+        // Main Loop
+        std::cout << "Server is Running. Press Ctrl+C to Stop." << std::endl;
+        while (SignalHandler::isRunning()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+
+        std::cout << "Shutting Down..." << std::endl;
+        serverManager.stop();
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        return 1;
+    }
+    catch (...) {
+        std::cerr << "Unknown Error" << std::endl;
         return 1;
     }
 
-    std::cout << std::format("Server Running: {}:{}", serverAddress, serverPort) << std::endl;
-
-    while (running) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
-
-    server.stop();
+    std::cout << "Server Shutdown Complete." << std::endl;
     return 0;
 }
