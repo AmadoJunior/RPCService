@@ -12,7 +12,7 @@ int main() {
         SignalHandler::initialize();
 
         // Initialize Memory Management
-        constexpr size_t BUFFER_SIZE = 10 * 1024 * 1024; // 10MB
+        constexpr size_t BUFFER_SIZE = 1000 * 1024 * 1024; // 1000MB
         auto memoryManager = std::make_shared<BumpMemoryManager>(BUFFER_SIZE);
 
         // Get Server's Resource for Initial Allocations
@@ -24,7 +24,7 @@ int main() {
 
         // Start Server
         std::pmr::string serverAddress("127.0.0.1", resource);
-        constexpr uint16_t serverPort = 8080;
+        constexpr uint16_t serverPort = 8070;
 
         if (!serverManager.start(serverAddress, serverPort)) {
             return 1;
@@ -33,7 +33,7 @@ int main() {
         // Main Loop
         std::cout << "Server is Running. Press Ctrl+C to Stop." << std::endl;
         while (SignalHandler::isRunning()) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
 
         std::cout << "Shutting Down..." << std::endl;

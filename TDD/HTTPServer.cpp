@@ -1,4 +1,5 @@
 #include "HTTPServer.h"
+#include "WinsockSocket.h"
 #include <iostream>
 #include <sstream>
 #include <format>
@@ -15,7 +16,7 @@ HTTPServer::HTTPServer(
     handlers_(serverResource_),
     routes_(serverResource_),
     clientSessions_(serverResource_),
-    clientSessionBufferSize_(256 * 1024)  // 256KB per Client by Default
+    clientSessionBufferSize_(1000 * 1024)  // 256KB per Client by Default
 {
 }
 
@@ -79,7 +80,7 @@ void HTTPServer::cleanupSessions() {
     while (it != clientSessions_.end()) {
         auto& session = *it;
         if (!session->isActive()) {
-            it = clientSessions_.erase(it);
+            it = clientSessions_.erase(it++);
         }
         else {
             ++it;
@@ -121,11 +122,12 @@ HTTPServer::Request HTTPServer::parseRequest(
         }
 
         std::istringstream lineStream(line);
-        std::string method, path;
-        lineStream >> method >> path;
+        std::string method, path, httpVersion;
+        lineStream >> method >> path >> httpVersion;
 
         request.method = std::pmr::string(method, resource);
         request.path = std::pmr::string(path, resource);
+        request.version = std::pmr::string(httpVersion, resource);
     }
 
     // Parse Headers
@@ -235,12 +237,12 @@ void HTTPServer::handleClient(ClientSession& session) {
 
     while (running_ && session.isActive()) {
         try {
-            // Attempt to Receive Data
+             // Attempt to Receive Data
             auto receiveResult = clientSocket->receive(16384);
 
             // No Data Available
             if (!receiveResult.has_value()) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                std::this_thread::sleep_for(std::chrono::microseconds(10));
                 continue;
             }
 
@@ -322,13 +324,21 @@ void HTTPServer::handleClient(ClientSession& session) {
             }
 
             // Connection Handling
-            bool keepAlive = true;
+            bool keepAlive = false;
             auto connectionHeader = request.headers.find(std::pmr::string("Connection", sessionResource));
             if (connectionHeader != request.headers.end()) {
                 std::pmr::string connectionValue = connectionHeader->second;
                 std::transform(connectionValue.begin(), connectionValue.end(),
                     connectionValue.begin(), ::tolower);
-                keepAlive = (connectionValue != "close");
+
+                // Check "keep-alive" Explicitly
+                keepAlive = (connectionValue == "keep-alive");
+            }
+            else {
+                // Default Behavior
+                // For HTTP/1.1, default is keep-alive
+                // For HTTP/1.0, default is close
+                keepAlive = request.version == "HTTP/1.1";
             }
 
             // Set Connection Headers
@@ -365,12 +375,19 @@ void HTTPServer::handleClient(ClientSession& session) {
 }
 
 void HTTPServer::acceptThreadHandler() {
+    if (auto* winsockSocket = dynamic_cast<WinsockSocket*>(socket_.get())) {
+        winsockSocket->setTimeout();
+        winsockSocket->setNonBlocking();
+    }
+
     while (running_) {
         auto clientResult = socket_->accept();
+
+        if (!running_) {
+            break;
+        }
+
         if (!clientResult.has_value()) {
-            if (running_) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            }
             continue;
         }
 
@@ -400,7 +417,7 @@ void HTTPServer::acceptThreadHandler() {
 
 void HTTPServer::cleanupThreadHandler() {
     while (running_) {
-        std::this_thread::sleep_for(std::chrono::seconds(10));
+        std::this_thread::sleep_for(std::chrono::microseconds(10));
         cleanupSessions();
     }
 }

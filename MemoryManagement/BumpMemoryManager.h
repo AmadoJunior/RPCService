@@ -26,7 +26,7 @@ public:
     ~BumpMemoryManager() = default;
 
     std::pmr::memory_resource* getResource();
-    std::unique_ptr<std::pmr::memory_resource, CustomDeleter> createClientResource(size_t clientBufferSize = 256 * 1024);
+    std::unique_ptr<std::pmr::memory_resource, CustomDeleter> createClientResource(size_t clientBufferSize = 256 * 1024, bool synchronizedPool = false);
 
     // Delete Copy/Move Operations
     BumpMemoryManager(const BumpMemoryManager&) = delete;

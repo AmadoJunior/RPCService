@@ -33,6 +33,7 @@ public:
     struct Request {
         std::pmr::string method;
         std::pmr::string path;
+        std::pmr::string version;
         std::pmr::unordered_map<std::pmr::string, std::pmr::string> headers;
         std::pmr::vector<uint8_t> body;
 

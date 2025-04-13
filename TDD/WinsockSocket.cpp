@@ -53,12 +53,11 @@ SocketError WinsockSocket::init() {
 
     // Allow Socket Reuse
     BOOL opt = TRUE;
-    if (setsockopt(sock_, SOL_SOCKET, SO_REUSEADDR,
+    if (setsockopt(sock_, SOL_SOCKET, SO_EXCLUSIVEADDRUSE,
         reinterpret_cast<const char*>(&opt), sizeof(opt)) == SOCKET_ERROR) {
         return getLastError(SocketError::Type::Initialization);
     }
-    // Add SO_EXCLUSIVEADDRUSE
-    if (setsockopt(sock_, SOL_SOCKET, SO_REUSEADDR,
+    if (setsockopt(sock_, IPPROTO_TCP, TCP_NODELAY,
         reinterpret_cast<const char*>(&opt), sizeof(opt)) == SOCKET_ERROR) {
         return getLastError(SocketError::Type::Initialization);
     }
@@ -110,7 +109,6 @@ std::expected<std::shared_ptr<Socket>, SocketError> WinsockSocket::accept() {
     sockaddr_in clientAddr{};
     int clientAddrLen = sizeof(clientAddr);
     SOCKET clientSocket = ::accept(sock_, reinterpret_cast<sockaddr*>(&clientAddr), &clientAddrLen);
-
     if (clientSocket == INVALID_SOCKET) {
         return std::unexpected(getLastError(SocketError::Type::Connection));
     }
@@ -156,6 +154,21 @@ SocketError WinsockSocket::send(const std::pmr::vector<uint8_t>& data) {
     return SocketError::success();
 }
 
+SocketError WinsockSocket::setNonBlocking() {
+    if (!initialized_) return{ SocketError::Type::Initialization, 0 };;
+
+    // Set the socket to non-blocking mode
+    u_long mode = 1;  // 1 = non-blocking, 0 = blocking
+    int result = ioctlsocket(sock_, FIONBIO, &mode);
+
+    if (result == SOCKET_ERROR) {
+        // Handle error - in practice you might want to log this
+        int error = WSAGetLastError();
+        return { SocketError::Type::Initialization, error };
+    }
+    return SocketError::success();
+}
+
 std::expected<std::pmr::vector<uint8_t>, SocketError> WinsockSocket::receive(size_t maxSize) {
     if (!initialized_) {
         return std::unexpected(SocketError{ SocketError::Type::Initialization, 0 });
@@ -175,6 +188,11 @@ std::expected<std::pmr::vector<uint8_t>, SocketError> WinsockSocket::receive(siz
 
 void WinsockSocket::close() {
     if (initialized_ && sock_ != INVALID_SOCKET) {
+        struct linger lin;
+        lin.l_onoff = 1;    // Enable linger
+        lin.l_linger = 0;   // Zero timeout - force abort of connection
+        setsockopt(sock_, SOL_SOCKET, SO_LINGER, (const char*)&lin, sizeof(lin));
+
         shutdown(sock_, SD_BOTH);
         closesocket(sock_);
         sock_ = INVALID_SOCKET;
@@ -185,7 +203,7 @@ void WinsockSocket::close() {
 int WinsockSocket::setTimeout() {
     // Set Socket Options
     struct timeval timeout;
-    timeout.tv_sec = 60;  // 60 Second
+    timeout.tv_sec = 5;  // 5 Second
     timeout.tv_usec = 0;
 
     if (setsockopt(sock_, SOL_SOCKET, SO_RCVTIMEO,

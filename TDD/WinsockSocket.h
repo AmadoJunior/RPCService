@@ -36,6 +36,7 @@ public:
 
     void close() override;
     int setTimeout() override;
+    SocketError setNonBlocking();
     bool isSameSocket(const std::shared_ptr<Socket>& other) const override;
     std::pmr::memory_resource* getMemoryResource() const override;
 private:

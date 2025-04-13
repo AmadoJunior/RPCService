@@ -56,14 +56,7 @@ void ClientSession::updateLastActivityTime() {
 
 void ClientSession::threadHandler() {
     try {
-        // Timeout
-        if (socket_->setTimeout()) {
-            std::cerr << "Failed to set socket timeout. Terminating session." << std::endl;
-            markInactive();
-            return;
-        }
-
-        handlerFunc_(*this);
+        if(isActive()) handlerFunc_(*this);
     }
     catch (const std::exception& e) {
         std::cerr << "Exception in client thread: " << e.what() << std::endl;

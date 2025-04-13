@@ -12,7 +12,7 @@ std::pmr::memory_resource* BumpMemoryManager::getResource() {
     return &pool_;
 }
 
-std::unique_ptr<std::pmr::memory_resource, BumpMemoryManager::CustomDeleter> BumpMemoryManager::createClientResource(size_t clientBufferSize) {
+std::unique_ptr<std::pmr::memory_resource, BumpMemoryManager::CustomDeleter> BumpMemoryManager::createClientResource(size_t clientBufferSize, bool synchronizedPool) {
     // Allocate Client Buffer from Main Pool
     std::byte* rawBuffer = new std::byte[clientBufferSize];
 
@@ -23,15 +23,28 @@ std::unique_ptr<std::pmr::memory_resource, BumpMemoryManager::CustomDeleter> Bum
     );
 
     // Create Pool Resource
-    auto poolResource = new std::pmr::unsynchronized_pool_resource(clientBufferPtr);
+    std::pmr::memory_resource* poolResource;
+    if (synchronizedPool) {
+        poolResource = new std::pmr::synchronized_pool_resource(clientBufferPtr);
+    }
+    else {
+        poolResource = new std::pmr::unsynchronized_pool_resource(clientBufferPtr);
+    }
 
     // Deleter
     BumpMemoryManager::CustomDeleter deleter =
-        [rawBuffer, clientBufferPtr](std::pmr::memory_resource* resource) {
+        [rawBuffer, clientBufferPtr, synchronizedPool](std::pmr::memory_resource* resource) {
         // Release Pool
-        auto* pool = static_cast<std::pmr::unsynchronized_pool_resource*>(resource);
-        pool->release();
-        delete pool;
+        if (synchronizedPool) {
+            auto* pool = static_cast<std::pmr::synchronized_pool_resource*>(resource);
+            pool->release();
+            delete pool;
+        }
+        else {
+            auto* pool = static_cast<std::pmr::unsynchronized_pool_resource*>(resource);
+            pool->release();
+            delete pool;
+        }
 
         // Release Monotonic Buffer
         clientBufferPtr->release();
